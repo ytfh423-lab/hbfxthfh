@@ -278,7 +278,6 @@ const define: Record<string, string> = {
 const externalPackages = [
   'sharp',
   'modifiers-napi',
-  'color-diff-napi',
 ];
 
 // Use bun build --compile
