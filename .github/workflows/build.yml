@@ -23,10 +23,6 @@ jobs:
             target: bun-darwin-arm64
             artifact: claude-cn-darwin-arm64
             ext: ""
-          - os: macos-13
-            target: bun-darwin-x64
-            artifact: claude-cn-darwin-x64
-            ext: ""
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
@@ -133,8 +129,7 @@ jobs:
           cp artifacts/claude-cn-windows-x64/claude.exe release/claude-cn-windows-x64.exe
           cp artifacts/claude-cn-linux-x64/claude release/claude-cn-linux-x64
           cp artifacts/claude-cn-darwin-arm64/claude release/claude-cn-darwin-arm64
-          cp artifacts/claude-cn-darwin-x64/claude release/claude-cn-darwin-x64
-          chmod +x release/claude-cn-linux-x64 release/claude-cn-darwin-arm64 release/claude-cn-darwin-x64
+          chmod +x release/claude-cn-linux-x64 release/claude-cn-darwin-arm64
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
