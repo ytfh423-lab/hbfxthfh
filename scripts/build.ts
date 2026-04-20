@@ -47,6 +47,7 @@ function findStubPath(fromFile: string, importPath: string): string | null {
   if (importPath.endsWith('.js')) return resolved.replace(/\.js$/, '.ts');
   if (importPath.endsWith('.jsx')) return resolved.replace(/\.jsx$/, '.tsx');
   if (importPath.endsWith('.md')) return resolved;
+  if (importPath.endsWith('.txt')) return resolved;
   return resolved + '.ts';
 }
 
@@ -58,7 +59,7 @@ const allRelativeImports = new Map<string, Set<string>>();
 for (const file of walkDir(srcDir)) {
   const content = readFileSync(file, 'utf-8');
 
-  // Named imports
+  // Static: import { X } from './path'
   const namedMatches = content.matchAll(
     /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"](\.[^'"]+)['"]/g
   );
@@ -76,7 +77,7 @@ for (const file of walkDir(srcDir)) {
     }
   }
 
-  // Default imports
+  // Static: import X from './path'
   const defaultMatches = content.matchAll(
     /import\s+(\w+)\s+from\s+['"](\.[^'"]+)['"]/g
   );
@@ -88,7 +89,7 @@ for (const file of walkDir(srcDir)) {
     allRelativeImports.get(stubPath)!.add(`__default__:${m[1]}`);
   }
 
-  // Mixed: import X, { A, B } from '...'
+  // Static: import X, { A, B } from '...'
   const mixedMatches = content.matchAll(
     /import\s+(\w+)\s*,\s*\{([^}]*)\}\s+from\s+['"](\.[^'"]+)['"]/g
   );
@@ -105,9 +106,17 @@ for (const file of walkDir(srcDir)) {
     }
   }
 
-  // Side-effect and export * from
+  // Side-effect: import './path' and export * from './path'
   const bareImports = content.matchAll(/(?:import|export\s+\*\s+from)\s+['"](\.[^'"]+)['"]/g);
   for (const m of bareImports) {
+    const stubPath = findStubPath(file, m[1]);
+    if (!stubPath) continue;
+    if (!allRelativeImports.has(stubPath)) allRelativeImports.set(stubPath, new Set());
+  }
+
+  // Dynamic: await import('./path') and require('./path')
+  const dynamicMatches = content.matchAll(/(?:import|require)\s*\(\s*['"](\.[^'"]+)['"]\s*\)/g);
+  for (const m of dynamicMatches) {
     const stubPath = findStubPath(file, m[1]);
     if (!stubPath) continue;
     if (!allRelativeImports.has(stubPath)) allRelativeImports.set(stubPath, new Set());
@@ -121,6 +130,11 @@ for (const [stubPath, names] of allRelativeImports) {
   const ext = extname(stubPath);
   if (ext === '.md') {
     writeFileSync(stubPath, '<!-- stub -->\n');
+    localStubCount++;
+    continue;
+  }
+  if (ext === '.txt') {
+    writeFileSync(stubPath, '');
     localStubCount++;
     continue;
   }
@@ -258,6 +272,15 @@ const define: Record<string, string> = {
   'MACRO.BUILD_ID': JSON.stringify('dev-cn'),
 };
 
+// Packages that are lazy-loaded via require() and contain native bindings
+// or are not needed for core functionality — mark as external so the
+// bundler doesn't try to resolve them at compile time.
+const externalPackages = [
+  'sharp',
+  'modifiers-napi',
+  'color-diff-napi',
+];
+
 // Use bun build --compile
 const cmd = [
   'bun', 'build',
@@ -266,6 +289,7 @@ const cmd = [
   `--target=${target}`,
   `--outfile=${join(outDir, outName)}`,
   ...Object.entries(define).map(([k, v]) => `--define=${k}=${v}`),
+  ...externalPackages.map(p => `--external=${p}`),
 ].join(' ');
 
 console.log(`   Running: ${cmd}`);
