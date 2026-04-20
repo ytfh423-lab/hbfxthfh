@@ -1,0 +1,140 @@
+name: Build Claude Code CN
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: bun-windows-x64
+            artifact: claude-cn-windows-x64
+            ext: .exe
+          - os: ubuntu-latest
+            target: bun-linux-x64
+            artifact: claude-cn-linux-x64
+            ext: ""
+          - os: macos-latest
+            target: bun-darwin-arm64
+            artifact: claude-cn-darwin-arm64
+            ext: ""
+          - os: macos-13
+            target: bun-darwin-x64
+            artifact: claude-cn-darwin-x64
+            ext: ""
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Build
+        env:
+          BUILD_TARGET: ${{ matrix.target }}
+          NODE_ENV: production
+        run: bun run scripts/build.ts
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/claude${{ matrix.ext }}
+
+  # Create npm-installable package (Windows x64 as example)
+  package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create npm package structure
+        run: |
+          mkdir -p npm-package/bin
+          
+          # Use linux binary for the main package
+          cp artifacts/claude-cn-linux-x64/claude npm-package/bin/claude
+          chmod +x npm-package/bin/claude
+          
+          # Create package.json
+          cat > npm-package/package.json << 'PKGJSON'
+          {
+            "name": "claude-code-cn",
+            "version": "2.1.114",
+            "description": "Claude Code 中文汉化版",
+            "bin": {
+              "claude-cn": "bin/claude"
+            },
+            "scripts": {
+              "postinstall": "node install.cjs"
+            },
+            "engines": {
+              "node": ">=18.0.0"
+            },
+            "license": "MIT"
+          }
+          PKGJSON
+          
+          # Create install script that picks the right binary
+          cat > npm-package/install.cjs << 'INSTALLJS'
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+          const path = require('path');
+          const os = require('os');
+          
+          const platform = process.platform;
+          const arch = os.arch();
+          const key = `${platform}-${arch}`;
+          
+          console.log(`[claude-code-cn] Platform: ${key}`);
+          console.log('[claude-code-cn] Binary is pre-installed.');
+          INSTALLJS
+
+      - name: Upload npm package
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-code-cn-npm
+          path: npm-package/
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare release files
+        run: |
+          mkdir release
+          cp artifacts/claude-cn-windows-x64/claude.exe release/claude-cn-windows-x64.exe
+          cp artifacts/claude-cn-linux-x64/claude release/claude-cn-linux-x64
+          cp artifacts/claude-cn-darwin-arm64/claude release/claude-cn-darwin-arm64
+          cp artifacts/claude-cn-darwin-x64/claude release/claude-cn-darwin-x64
+          chmod +x release/claude-cn-linux-x64 release/claude-cn-darwin-arm64 release/claude-cn-darwin-x64
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true

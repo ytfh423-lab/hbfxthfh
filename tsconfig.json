@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": false,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": false,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "src/*": ["./src/*"],
+      "react/compiler-runtime": ["./shims/react-compiler-runtime.ts"],
+      "bun:bundle": ["./shims/bun-bundle.ts"]
+    }
+  },
+  "include": ["src/**/*", "shims/**/*"]
+}

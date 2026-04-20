@@ -1,0 +1,4 @@
+preload = ["./shims/preload.ts"]
+
+[install]
+peer = false

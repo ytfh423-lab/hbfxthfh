@@ -1,0 +1,9 @@
+node_modules/
+dist/
+bun.lock
+*.log
+debug-run.ts
+find-missing.ts
+generate-stubs.ts
+generate-stubs-v2.ts
+debug-stderr.log
