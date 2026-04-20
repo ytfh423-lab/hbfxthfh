@@ -270,6 +270,7 @@ const define: Record<string, string> = {
   'MACRO.VERSION': JSON.stringify('2.1.114'),
   'MACRO.GIT_HASH': JSON.stringify('dev-cn'),
   'MACRO.BUILD_ID': JSON.stringify('dev-cn'),
+  'process.env.NODE_ENV': '"production"',
 };
 
 // Packages that are lazy-loaded via require() and contain native bindings
