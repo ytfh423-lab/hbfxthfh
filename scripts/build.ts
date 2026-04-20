@@ -261,16 +261,21 @@ if (!existsSync(tungstenPath)) {
 // ─── Step 3.5: Force React production builds ──────────────
 console.log('==> Step 3.5: Patching React packages to use production builds...');
 
-const reactPkgs = ['react', 'react-reconciler'];
-for (const pkg of reactPkgs) {
-  const entryPath = join(nodeModules, pkg, 'index.js');
-  if (existsSync(entryPath)) {
-    const original = readFileSync(entryPath, 'utf-8');
-    // Replace the development/production branch with direct production require
-    const prodFile = `./cjs/${pkg}.production.js`;
-    if (original.includes(prodFile)) {
-      writeFileSync(entryPath, `'use strict';\nmodule.exports = require('${prodFile}');\n`);
-      console.log(`   Patched ${pkg}/index.js -> production`);
+// Patch ALL .js entry files in react and react-reconciler that have NODE_ENV checks
+const reactDirs = ['react', 'react-reconciler'];
+for (const pkg of reactDirs) {
+  const pkgDir = join(nodeModules, pkg);
+  if (!existsSync(pkgDir)) continue;
+  for (const file of readdirSync(pkgDir)) {
+    if (!file.endsWith('.js')) continue;
+    const filePath = join(pkgDir, file);
+    const content = readFileSync(filePath, 'utf-8');
+    if (!content.includes('process.env.NODE_ENV')) continue;
+    // Extract the production require path
+    const prodMatch = content.match(/require\('(\.\/cjs\/[^']*\.production\.js)'\)/);
+    if (prodMatch) {
+      writeFileSync(filePath, `'use strict';\nmodule.exports = require('${prodMatch[1]}');\n`);
+      console.log(`   Patched ${pkg}/${file} -> production`);
     }
   }
 }
