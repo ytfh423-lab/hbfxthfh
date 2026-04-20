@@ -266,16 +266,29 @@ const reactDirs = ['react', 'react-reconciler'];
 for (const pkg of reactDirs) {
   const pkgDir = join(nodeModules, pkg);
   if (!existsSync(pkgDir)) continue;
+  // Step A: Patch entry files to point directly to production
   for (const file of readdirSync(pkgDir)) {
     if (!file.endsWith('.js')) continue;
     const filePath = join(pkgDir, file);
     const content = readFileSync(filePath, 'utf-8');
     if (!content.includes('process.env.NODE_ENV')) continue;
-    // Extract the production require path
     const prodMatch = content.match(/require\('(\.\/cjs\/[^']*\.production\.js)'\)/);
     if (prodMatch) {
       writeFileSync(filePath, `'use strict';\nmodule.exports = require('${prodMatch[1]}');\n`);
       console.log(`   Patched ${pkg}/${file} -> production`);
+    }
+  }
+  // Step B: Replace all development.js CJS files with re-exports of production
+  const cjsDir = join(pkgDir, 'cjs');
+  if (!existsSync(cjsDir)) continue;
+  for (const file of readdirSync(cjsDir)) {
+    if (!file.includes('.development.')) continue;
+    const prodFile = file.replace('.development.', '.production.');
+    const prodPath = join(cjsDir, prodFile);
+    if (existsSync(prodPath)) {
+      const devPath = join(cjsDir, file);
+      writeFileSync(devPath, `'use strict';\nmodule.exports = require('./${prodFile}');\n`);
+      console.log(`   Replaced ${pkg}/cjs/${file} -> ${prodFile}`);
     }
   }
 }
