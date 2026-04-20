@@ -258,8 +258,25 @@ if (!existsSync(tungstenPath)) {
   console.log('   Created TungstenTool stub');
 }
 
+// ─── Step 3.5: Force React production builds ──────────────
+console.log('==> Step 3.5: Patching React packages to use production builds...');
+
+const reactPkgs = ['react', 'react-reconciler'];
+for (const pkg of reactPkgs) {
+  const entryPath = join(nodeModules, pkg, 'index.js');
+  if (existsSync(entryPath)) {
+    const original = readFileSync(entryPath, 'utf-8');
+    // Replace the development/production branch with direct production require
+    const prodFile = `./cjs/${pkg}.production.js`;
+    if (original.includes(prodFile)) {
+      writeFileSync(entryPath, `'use strict';\nmodule.exports = require('${prodFile}');\n`);
+      console.log(`   Patched ${pkg}/index.js -> production`);
+    }
+  }
+}
+
 // ─── Step 4: Bundle with Bun ───────────────────────────────
-console.log('==> Step 3: Building with Bun...');
+console.log('==> Step 4: Building with Bun...');
 
 const target = process.env.BUILD_TARGET || `bun-${process.platform}-${process.arch}`;
 const outName = process.platform === 'win32' ? 'claude.exe' : 'claude';
@@ -270,7 +287,6 @@ const define: Record<string, string> = {
   'MACRO.VERSION': JSON.stringify('2.1.114'),
   'MACRO.GIT_HASH': JSON.stringify('dev-cn'),
   'MACRO.BUILD_ID': JSON.stringify('dev-cn'),
-  'process.env.NODE_ENV': '"production"',
 };
 
 // Packages that are lazy-loaded via require() and contain native bindings
