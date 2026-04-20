@@ -7,7 +7,7 @@
  */
 import { readFileSync, readdirSync, statSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join, dirname, resolve, extname } from 'path';
-import { execSync } from 'child_process';
+import { execSync, spawnSync } from 'child_process';
 
 const ROOT = resolve(import.meta.dir, '..');
 const srcDir = join(ROOT, 'src');
@@ -281,22 +281,27 @@ const externalPackages = [
   'modifiers-napi',
 ];
 
-// Use bun build --compile
-const cmd = [
-  'bun', 'build',
+// Use bun build --compile (spawnSync to avoid shell quoting issues)
+const args = [
+  'build',
   join(ROOT, 'src', 'entrypoints', 'cli.tsx'),
   '--compile',
   `--target=${target}`,
   `--outfile=${join(outDir, outName)}`,
   ...Object.entries(define).map(([k, v]) => `--define=${k}=${v}`),
   ...externalPackages.map(p => `--external=${p}`),
-].join(' ');
+];
 
-console.log(`   Running: ${cmd}`);
-try {
-  execSync(cmd, { cwd: ROOT, stdio: 'inherit', env: { ...process.env, NODE_ENV: 'production' } });
+console.log(`   Running: bun ${args.join(' ')}`);
+const result = spawnSync('bun', args, {
+  cwd: ROOT,
+  stdio: 'inherit',
+  env: { ...process.env, NODE_ENV: 'production' },
+});
+
+if (result.status === 0) {
   console.log(`\n✅ Build complete: dist/${outName}`);
-} catch (e: any) {
-  console.error('\n❌ Build failed');
+} else {
+  console.error(`\n❌ Build failed (exit code ${result.status})`);
   process.exit(1);
 }
