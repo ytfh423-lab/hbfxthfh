@@ -192,7 +192,7 @@ export function getEffortSuffix(
   if (effortValue === undefined) return ''
   const resolved = resolveAppliedEffort(model, effortValue)
   if (resolved === undefined) return ''
-  return ` with ${convertEffortValueToLevel(resolved)} effort`
+  return ` ${convertEffortValueToLevel(resolved)} 努力程度`
 }
 
 export function isValidNumericEffort(value: number): boolean {
@@ -224,13 +224,13 @@ export function convertEffortValueToLevel(value: EffortValue): EffortLevel {
 export function getEffortLevelDescription(level: EffortLevel): string {
   switch (level) {
     case 'low':
-      return 'Quick, straightforward implementation with minimal overhead'
+      return '快速简洁的实现，开销最小'
     case 'medium':
-      return 'Balanced approach with standard implementation and testing'
+      return '平衡方案，标准实现和测试'
     case 'high':
-      return 'Comprehensive implementation with extensive testing and documentation'
+      return '全面实现，包含充分的测试和文档'
     case 'max':
-      return 'Maximum capability with deepest reasoning (Opus 4.6 only)'
+      return '最强能力，最深度推理（仅 Opus 4.6）'
   }
 }
 
@@ -242,13 +242,13 @@ export function getEffortLevelDescription(level: EffortLevel): string {
  */
 export function getEffortValueDescription(value: EffortValue): string {
   if (process.env.USER_TYPE === 'ant' && typeof value === 'number') {
-    return `[ANT-ONLY] Numeric effort value of ${value}`
+    return `[内部] 数值努力等级 ${value}`
   }
 
   if (typeof value === 'string') {
     return getEffortLevelDescription(value)
   }
-  return 'Balanced approach with standard implementation and testing'
+  return '平衡方案，标准实现和测试'
 }
 
 export type OpusDefaultEffortConfig = {
