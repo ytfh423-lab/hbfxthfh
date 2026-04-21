@@ -54,7 +54,7 @@ export async function call(onDone: LocalJSXCommandOnDone, context: LocalJSXComma
         authVersion: prev.authVersion + 1
       }));
     }
-    onDone(success ? 'Login successful' : 'Login interrupted');
+    onDone(success ? '登录成功' : '登录已中断');
   }} />;
 }
 export function Login(props) {
@@ -89,7 +89,7 @@ export function Login(props) {
   }
   let t3;
   if ($[9] !== t0 || $[10] !== t2) {
-    t3 = <Dialog title="Login" onCancel={t0} color="permission" inputGuide={_temp}>{t2}</Dialog>;
+    t3 = <Dialog title="登录" onCancel={t0} color="permission" inputGuide={_temp}>{t2}</Dialog>;
     $[9] = t0;
     $[10] = t2;
     $[11] = t3;
