@@ -1,6 +1,13 @@
 import { c as _c } from "react/compiler-runtime";
 import { feature } from 'bun:bundle';
-import React, { useContext, useEffect, useEffectEvent, useState, useSyncExternalStore } from 'react';
+import React, { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+
+// Polyfill: useEffectEvent is not available in react-reconciler@0.31.0
+function useEffectEvent<T extends (...args: any[]) => any>(fn: T): T {
+  const ref = useRef(fn);
+  ref.current = fn;
+  return useCallback((...args: any[]) => ref.current(...args), []) as T;
+}
 import { MailboxProvider } from '../context/mailbox.js';
 import { useSettingsChange } from '../hooks/useSettingsChange.js';
 import { logForDebugging } from '../utils/debug.js';
