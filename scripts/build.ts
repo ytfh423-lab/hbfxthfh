@@ -258,17 +258,13 @@ if (!existsSync(tungstenPath)) {
   console.log('   Created TungstenTool stub');
 }
 
-// ─── Step 4: Two-phase build ─────────────────────────────
-// Phase 1: Bundle to single JS using Bun.build() API with proper define & plugin
-// Phase 2: Compile the bundled JS into a standalone executable
-console.log('==> Step 4: Phase 1 - Bundling with Bun.build() API...');
+// ─── Step 4: Bundle with Bun (single-step, same as official build) ──
+console.log('==> Step 4: Building with Bun...');
 
 const target = process.env.BUILD_TARGET || `bun-${process.platform}-${process.arch}`;
 const outName = process.platform === 'win32' ? 'claude.exe' : 'claude';
 const outDir = join(ROOT, 'dist');
-const buildDir = join(ROOT, '.build');
 mkdirSync(outDir, { recursive: true });
-mkdirSync(buildDir, { recursive: true });
 
 // Packages with native bindings — mark as external
 const externalPackages = [
@@ -276,81 +272,26 @@ const externalPackages = [
   'modifiers-napi',
 ];
 
-// React production plugin: intercept react/react-reconciler imports
-// and resolve them to the production CJS builds directly
-const reactProductionPlugin: import('bun').BunPlugin = {
-  name: 'react-production',
-  setup(build) {
-    const reactPkgs = ['react', 'react-reconciler'];
-    for (const pkg of reactPkgs) {
-      // Intercept the main package import
-      build.onResolve({ filter: new RegExp(`^${pkg}$`) }, (args) => {
-        return { path: join(nodeModules, pkg, 'cjs', `${pkg}.production.js`) };
-      });
-      // Intercept subpath imports like react/jsx-runtime
-      build.onResolve({ filter: new RegExp(`^${pkg}/`) }, (args) => {
-        const subpath = args.path.replace(`${pkg}/`, '');
-        // Map subpath to production CJS file
-        const cjsName = `${pkg}-${subpath.replace(/\//g, '-')}.production.js`;
-        const cjsPath = join(nodeModules, pkg, 'cjs', cjsName);
-        if (existsSync(cjsPath)) {
-          return { path: cjsPath };
-        }
-        // Fallback: let default resolution handle it
-        return undefined;
-      });
-    }
-  },
+const define: Record<string, string> = {
+  'MACRO.VERSION': JSON.stringify('2.1.114'),
+  'MACRO.GIT_HASH': JSON.stringify('dev-cn'),
+  'MACRO.BUILD_ID': JSON.stringify('dev-cn'),
+  'process.env.NODE_ENV': JSON.stringify('production'),
 };
 
-const bundleResult = await Bun.build({
-  entrypoints: [join(ROOT, 'src', 'entrypoints', 'cli.tsx')],
-  outdir: buildDir,
-  target: 'bun',
-  minify: false,
-  sourcemap: 'none',
-  define: {
-    'MACRO.VERSION': JSON.stringify('2.1.114'),
-    'MACRO.GIT_HASH': JSON.stringify('dev-cn'),
-    'MACRO.BUILD_ID': JSON.stringify('dev-cn'),
-    'process.env.NODE_ENV': JSON.stringify('production'),
-  },
-  external: externalPackages,
-  plugins: [reactProductionPlugin],
-});
-
-if (!bundleResult.success) {
-  console.error('\n❌ Phase 1 bundle failed:');
-  for (const log of bundleResult.logs) {
-    console.error('  ', log.message);
-  }
-  process.exit(1);
-}
-
-const bundledFile = join(buildDir, 'cli.js');
-console.log(`   Bundled to ${bundledFile} (${(statSync(bundledFile).size / 1024 / 1024).toFixed(1)} MB)`);
-
-// Verify no development React code
-const bundledContent = readFileSync(bundledFile, 'utf-8');
-if (bundledContent.includes('react.development.js') || bundledContent.includes('react-reconciler.development.js')) {
-  console.warn('   ⚠️ WARNING: Development React code detected in bundle!');
-} else {
-  console.log('   ✅ No development React code in bundle');
-}
-
-// Phase 2: Compile to executable
-console.log('==> Step 5: Phase 2 - Compiling to executable...');
-
-const compileArgs = [
+// Single-step bun build --compile (matches official build pipeline)
+const args = [
   'build',
-  bundledFile,
+  join(ROOT, 'src', 'entrypoints', 'cli.tsx'),
   '--compile',
   `--target=${target}`,
   `--outfile=${join(outDir, outName)}`,
+  ...Object.entries(define).map(([k, v]) => `--define=${k}=${v}`),
+  ...externalPackages.map(p => `--external=${p}`),
 ];
 
-console.log(`   Running: bun ${compileArgs.join(' ')}`);
-const result = spawnSync('bun', compileArgs, {
+console.log(`   Running: bun ${args.join(' ')}`);
+const result = spawnSync('bun', args, {
   cwd: ROOT,
   stdio: 'inherit',
   env: { ...process.env, NODE_ENV: 'production' },
@@ -359,6 +300,6 @@ const result = spawnSync('bun', compileArgs, {
 if (result.status === 0) {
   console.log(`\n✅ Build complete: dist/${outName}`);
 } else {
-  console.error(`\n❌ Phase 2 compile failed (exit code ${result.status})`);
+  console.error(`\n❌ Build failed (exit code ${result.status})`);
   process.exit(1);
 }
