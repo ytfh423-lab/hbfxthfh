@@ -1,12 +1,13 @@
 import { c as _c } from "react/compiler-runtime";
 import { feature } from 'bun:bundle';
-import React, { useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import React, { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 // Polyfill: useEffectEvent is not available in react-reconciler@0.31.0
+// IMPORTANT: Must use exactly 1 hook (useRef) to match the original hook slot count
 function useEffectEvent<T extends (...args: any[]) => any>(fn: T): T {
-  const ref = useRef(fn);
+  const ref = useRef<T>(fn);
   ref.current = fn;
-  return useCallback((...args: any[]) => ref.current(...args), []) as T;
+  return ((...args: any[]) => ref.current(...args)) as T;
 }
 import { MailboxProvider } from '../context/mailbox.js';
 import { useSettingsChange } from '../hooks/useSettingsChange.js';
